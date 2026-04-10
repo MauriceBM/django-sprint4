@@ -145,7 +145,11 @@ def delete_comment(request, post_id, comment_id):
     if request.method == 'POST':
         comment.delete()
         return redirect('blog:post_detail', post_id=post_id)
-    return render(request, 'blog/comment_confirm_delete.html', {'comment': comment})
+    return render(
+        request,
+        'blog/comment_confirm_delete.html',
+        {'comment': comment}
+    )
 
 
 class ProfileView(ListView):
