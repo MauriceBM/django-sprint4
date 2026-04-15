@@ -40,8 +40,6 @@ class Post(models.Model):
     category = models.ForeignKey(
         Category,
         on_delete=models.SET_NULL,
-        null=True,
-        blank=True
     )
     is_published = models.BooleanField(default=True)
     image = models.ImageField(
