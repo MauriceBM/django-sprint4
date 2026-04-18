@@ -1,3 +1,4 @@
+from django.db.models import Q
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -17,14 +18,14 @@ User = get_user_model()
 
 
 def get_paginated_queryset(queryset, request, per_page=PAGINATE_BY):
-    """Helper : retourne une page paginée avec valeur par défaut."""
+    """Возвращает объект страницы для указанного набора запросов."""
     paginator = Paginator(queryset, per_page)
     page_number = request.GET.get('page', DEFAULT_PAGE)
     return paginator.get_page(page_number)
 
 
 class PublishedPostsMixin:
-    """Mixin pour filtrer les posts publiés avec catégorie valide."""
+    """Миксин для фильтрации опубликованных записей."""
 
     def get_published_posts(self):
         return Post.objects.filter(
@@ -35,7 +36,7 @@ class PublishedPostsMixin:
 
 
 class IndexView(PublishedPostsMixin, ListView):
-    """Vue principale : liste des posts publiés (CBV)."""
+    """Главная страница со списком опубликованных записей."""
 
     model = Post
     template_name = 'blog/index.html'
@@ -47,7 +48,7 @@ class IndexView(PublishedPostsMixin, ListView):
 
 
 def category_posts(request, category_slug):
-    """Vue : posts d'une catégorie spécifique."""
+    """Страница записей конкретной категории."""
     category = get_object_or_404(
         Category,
         slug=category_slug,
@@ -67,17 +68,18 @@ def category_posts(request, category_slug):
 
 
 def post_detail(request, post_id):
-    """Vue : détail d'un post avec commentaires."""
+    """Страница детального просмотра записи."""
     post = get_object_or_404(Post, id=post_id)
 
-    # Guard clause : vérification des permissions d'accès
     if request.user != post.author:
-        if (not post.is_published
-                or not post.category.is_published
-                or post.pub_date > timezone.now()):
+        if not post.is_published:
+            raise Http404()
+        if post.category and not post.category.is_published:
+            raise Http404()
+        if post.pub_date > timezone.now():
             raise Http404()
 
-    comments = post.comments.order_by('created_at')
+    comments = post.comments.all()
     return render(
         request,
         'blog/post_detail.html',
@@ -87,9 +89,9 @@ def post_detail(request, post_id):
 
 @login_required
 def create_post(request):
-    """Vue : création d'un nouveau post."""
+    """Создание новой публикации."""
     form = PostForm(request.POST or None, request.FILES or None)
-    if not form.is_valid():  # Guard clause
+    if not form.is_valid():
         return render(request, 'blog/create.html', {'form': form})
 
     post = form.save(commit=False)
@@ -103,10 +105,9 @@ def create_post(request):
 
 @login_required
 def edit_post(request, post_id):
-    """Vue : édition d'un post existant."""
+    """Редактирование существующей публикации."""
     post = get_object_or_404(Post, id=post_id)
 
-    # Guard clause : vérification de l'auteur
     if request.user != post.author:
         return redirect('blog:post_detail', post_id=post.id)
 
@@ -115,7 +116,7 @@ def edit_post(request, post_id):
         request.FILES or None,
         instance=post
     )
-    if not form.is_valid():  # Guard clause
+    if not form.is_valid():
         return render(
             request,
             'blog/create.html',
@@ -127,14 +128,12 @@ def edit_post(request, post_id):
 
 @login_required
 def delete_post(request, post_id):
-    """Vue : suppression d'un post."""
+    """Удаление публикации."""
     post = get_object_or_404(Post, id=post_id)
 
-    # Guard clause : vérification de l'auteur
     if request.user != post.author:
         return redirect('blog:post_detail', post_id=post.id)
 
-    # Guard clause : traitement uniquement sur POST
     if request.method != 'POST':
         return render(
             request,
@@ -147,9 +146,9 @@ def delete_post(request, post_id):
 
 @login_required
 def add_comment(request, post_id):
-    """Vue : ajout d'un commentaire."""
+    """Добавление комментария к публикации."""
     post = get_object_or_404(Post, id=post_id)
-    form = CommentForm(request.POST or None)  # Correction : or None
+    form = CommentForm(request.POST or None)
     if form.is_valid():
         comment = form.save(commit=False)
         comment.author = request.user
@@ -160,15 +159,14 @@ def add_comment(request, post_id):
 
 @login_required
 def edit_comment(request, post_id, comment_id):
-    """Vue : édition d'un commentaire."""
+    """Редактирование комментария."""
     comment = get_object_or_404(Comment, id=comment_id)
 
-    # Guard clause : vérification de l'auteur
     if request.user != comment.author:
         return redirect('blog:post_detail', post_id=post_id)
 
     form = CommentForm(request.POST or None, instance=comment)
-    if not form.is_valid():  # Guard clause
+    if not form.is_valid():
         return render(
             request,
             'blog/comment.html',
@@ -180,14 +178,12 @@ def edit_comment(request, post_id, comment_id):
 
 @login_required
 def delete_comment(request, post_id, comment_id):
-    """Vue : suppression d'un commentaire."""
+    """Удаление комментария."""
     comment = get_object_or_404(Comment, id=comment_id)
 
-    # Guard clause : vérification de l'auteur
     if request.user != comment.author:
         return redirect('blog:post_detail', post_id=post_id)
 
-    # Guard clause : traitement uniquement sur POST
     if request.method != 'POST':
         return render(
             request,
@@ -199,7 +195,7 @@ def delete_comment(request, post_id, comment_id):
 
 
 class ProfileView(PublishedPostsMixin, ListView):
-    """Vue : profil utilisateur avec ses posts."""
+    """Страница профиля пользователя с его публикациями."""
 
     model = Post
     template_name = 'blog/profile.html'
@@ -210,12 +206,10 @@ class ProfileView(PublishedPostsMixin, ListView):
         username = self.kwargs['username']
         self.profile_user = get_object_or_404(User, username=username)
         if self.request.user == self.profile_user:
-            return Post.objects.filter(
-                author=self.profile_user
-            ).order_by('-pub_date')
-        return self.get_published_posts().filter(
-            author=self.profile_user
-        ).order_by('-pub_date')
+            return Post.objects.filter(author=self.profile_user
+                                       ).order_by('-pub_date')
+        return self.get_published_posts().filter(author=self.profile_user
+                                                 ).order_by('-pub_date')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -225,7 +219,7 @@ class ProfileView(PublishedPostsMixin, ListView):
 
 
 class ProfileEditView(LoginRequiredMixin, UpdateView):
-    """Vue : édition du profil utilisateur."""
+    """Редактирование профиля пользователя."""
 
     model = User
     form_class = ProfileEditForm

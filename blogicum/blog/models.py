@@ -6,7 +6,7 @@ User = get_user_model()
 
 
 class TimeStampedMixin(models.Model):
-    """Mixin абстрактный: добавляет поле created_at."""
+    """Миксин: добавляет поле даты создания."""
 
     created_at = models.DateTimeField(
         auto_now_add=True,
@@ -15,11 +15,10 @@ class TimeStampedMixin(models.Model):
 
     class Meta:
         abstract = True
-        ordering = ['-created_at']
 
 
 class PublishableMixin(TimeStampedMixin):
-    """Mixin абстрактный: добавляет поле is_published."""
+    """Миксин: добавляет поле публикации."""
 
     is_published = models.BooleanField(
         default=True,
@@ -28,7 +27,6 @@ class PublishableMixin(TimeStampedMixin):
 
     class Meta:
         abstract = True
-        ordering = ['-created_at']
 
 
 class Location(PublishableMixin):
@@ -40,10 +38,9 @@ class Location(PublishableMixin):
     )
 
     class Meta:
-        abstract = False
-        ordering = ['name']
         verbose_name = 'локация'
         verbose_name_plural = 'Локации'
+        ordering = ['name']
 
     def __str__(self):
         return self.name
@@ -65,10 +62,9 @@ class Category(PublishableMixin):
     )
 
     class Meta:
-        abstract = False
-        ordering = ['title']
         verbose_name = 'категория'
         verbose_name_plural = 'Категории'
+        ordering = ['title']
 
     def __str__(self):
         return self.title
@@ -117,10 +113,9 @@ class Post(PublishableMixin):
     )
 
     class Meta:
-        abstract = False
-        ordering = ['-pub_date']
         verbose_name = 'публикация'
         verbose_name_plural = 'Публикации'
+        ordering = ['-pub_date']
 
     def __str__(self):
         return self.title
@@ -146,10 +141,9 @@ class Comment(TimeStampedMixin):
     )
 
     class Meta:
-        abstract = False
-        ordering = ['created_at']
         verbose_name = 'комментарий'
         verbose_name_plural = 'Комментарии'
+        ordering = ['created_at']
 
     def __str__(self):
         return self.text[:20]
